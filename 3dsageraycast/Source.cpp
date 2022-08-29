@@ -1,7 +1,8 @@
 #define OLC_PGE_APPLICATION
 
 #include "olcPixelGameEngine.h"
-#include "Textures.h"
+//#include "Textures.h"
+#include "textures/All_Textures.ppm"
 #include <math.h>
 #include <cmath>
 #define PI 3.1415926535
@@ -59,7 +60,29 @@ public:
 		1,1,2,1,1,4,1,1,
 	};
 
+	int mapF[mapx * mapy] =
+	{
+		0,0,0,0,0,0,0,0,
+		0,0,0,1,0,0,0,0,
+		0,0,0,3,0,2,0,0,
+		0,1,0,1,0,0,0,0,
+		0,0,0,0,0,0,0,0,
+		0,0,0,0,0,4,0,0,
+		0,0,1,0,4,0,0,0,
+		0,0,0,0,0,0,0,0,
+	};
 
+	int mapC[mapx * mapy] =
+	{
+		0,0,0,0,0,0,0,0,
+		0,0,0,1,0,0,0,0,
+		0,0,2,0,0,2,0,0,
+		0,1,0,1,0,0,0,2,
+		0,0,0,0,0,0,0,0,
+		0,0,0,0,0,4,0,0,
+		0,0,1,0,1,0,0,0,
+		0,0,0,0,0,0,0,0,
+	};
 
 public:
 	bool OnUserCreate() override
@@ -84,7 +107,7 @@ public:
 	bool OnUserUpdate(float fElapsedTime) override
 	{
 		Clear(olc::DARK_GREY);
-
+		
 
 
 		if (GetKey(olc::Key::W).bHeld)
@@ -149,7 +172,7 @@ public:
 		drawRays3D();
 		FillRect(player.x, player.y, player.width, player.height, olc::GREEN);
 		DrawLine(player.x, player.y, player.x + cos(player.angle) * 5, player.y + sin(player.angle) * 5, olc::GREEN);
-
+		
 		return true;
 	}
 
@@ -226,25 +249,25 @@ public:
 			dof = 0;
 			float disH = 1000000, hx = player.x, hy = player.y;
 
-			float a1tan =  -1 / tan(ra);
+			float a1tan =  -tan(ra);
 			
 			//looking up
 			if (ra > PI) {
 				ry = (((int)player.y >> 6) << 6) - 0.0001; 
 				
-				rx = (player.y - ry) * a1tan + player.x;
+				rx = (player.y - ry) / a1tan + player.x;
 				yo = -64;
-				xo = -yo * a1tan;
+				xo = -yo / a1tan;
 
 			}
 
 			//looking down
 			if (ra < PI) {
 				ry = (((int)player.y >> 6) << 6) + 64;
-				tx = (player.y - ry) * a1tan;
-				rx = (player.y - ry) * a1tan + player.x;
+				tx = (player.y - ry) / a1tan;
+				rx = (player.y - ry) / a1tan + player.x;
 				yo = +64;
-				xo = -yo * a1tan;
+				xo = -yo / a1tan;
 
 			}
 			if (ra == 0 || ra == PI) { rx = player.x; ry = player.y; dof = 8; }
@@ -308,6 +331,8 @@ public:
 
 	void draw3DWalls(float disT, float ra, int r, float shade, float rx, float ry, int mt)
 	{
+
+		//std::cout << "player angle: " << player.angle << " ra: " << ra << std::endl;
 		float ca = player.angle - ra;
 		float newDisT = disT;
 		newDisT *= cos(ca);
@@ -325,44 +350,64 @@ public:
 
 		//draws walls
 		int y;
-		float ty = ty_off * ty_step + mt * 32;
+		float ty = ty_off * ty_step; // +mt * 32;
 		float tx = 0;
 		if (shade == 1) 
 		{ 
 			tx = (int)(rx / 2.0f) % 32; 
-			if (ra > 180) { tx = 31 - tx; }
+			if (ra > PI) { tx = 31 - tx; }
 		}
 		else
 		{
 			tx = (int)(ry / 2.0f) % 32; 
-			if (ra > 90 && ra < 270) { tx = 31 - tx; }
+			if (ra > P2 && ra < P3) { tx = 31 - tx; }
 		}
 
 		//ty += 32;
 		
 		for (y = 0; y < lineH; y++)
 		{
-			float c = All_Textures[(int)(ty) * 32 + (int)(tx)] * shade;
 			
-			olc::Pixel p;
 
-			if (mt == 0) { p = olc::PixelF(c, c / 2.0f, c / 2.0f); } //checkboard red
-			if (mt == 1) { p = olc::PixelF(c / 2.0f,c /2.0f, c); } //window blue
-			if (mt == 2) { p = olc::PixelF(c / 2.0f, c, c / 2.0f); } //door green
-			if (mt == 3) { p = olc::PixelF(c , c, c / 2.0f); } //brick yellow
-			FillRect(r * 8 + 530, lineO + y, 8, 1, p);
+			
+			int pixel = ((int)ty * 32 + (int)tx) * 3 +(mt * 32 * 32 * 3);
+			int red = ALL_Textures[pixel + 0] * shade;
+			int green = ALL_Textures[pixel + 1] * shade;
+			int blue = ALL_Textures[pixel + 2] * shade;
+			
+			olc::Pixel Testp = olc::Pixel(red, green, blue);
+			
+			FillRect(r * 8 + 530, lineO + y, 8, 1, Testp);
 			ty += ty_step;
 		}
 
 		//draw floors
 		for (y = lineO + lineH; y < 320; y++)
 		{
-			float dy = y - (320 / 2.0f), deg = degToRad(ra), raFix = cos(degToRad(FixAng(player.angle - ra)));
-			tx = player.x / 2 + cos(deg) * 158 * 32 / dy / raFix;
-			ty = player.y / 2 - sin(deg) * 158 * 32 / dy / raFix;
-			float c = All_Textures[((int)(ty) & 31) * 32 + ((int)(tx) & 31)] * 0.7f;
-			olc::Pixel p = olc::PixelF(c,c,c);
+			float dy = y - (320 / 2.0f), deg = ra, raFix = cos(player.angle - ra);
+			//tx = player.x / 2 + cos(deg) * 158 * 32 / dy / raFix;
+			//ty = player.y / 2 +sin(deg) * 158 * 32 / dy / raFix;
+			float fPlayerTexX = player.x / 2;
+			float fPlayerTexY = player.y / 2;
+			float fDistToScreen = 158;
+			float fPlayerHeight = 32;
+			float fPrepDistance = fDistToScreen * fPlayerHeight / dy;
+			float fFinalDistance = fPrepDistance / raFix;
+			tx = fPlayerTexX + cos(deg) * fFinalDistance;
+			ty = fPlayerTexY + sin(deg) * fFinalDistance;
+
+			int mp = mapF[(int)(ty / 32.0f) * mapx + (int)(tx / 32.0f)] * 32 * 32;
+
+			float c = ALL_Textures[((int)(ty) & 31) * 32 + ((int)(tx) & 31) + mp] * 0.7f;
+			olc::Pixel p = olc::PixelF(c / 1.3,c / 1.3,c);
 			FillRect(r * 8 + 530, y, 8, 1, p); 
+
+			//draw ceiling
+			mp = mapC[(int)(ty / 32.0f) * mapx + (int)(tx / 32.0f)] * 32 * 32;
+
+			c = ALL_Textures[((int)(ty) & 31) * 32 + ((int)(tx) & 31) + mp] * 0.7f;
+			p = olc::PixelF(c / 2.0, c / 1.2, c / 2.0);
+			FillRect(r * 8 + 530, 320 - y, 8, 1, p);
 		}
 	}
 
