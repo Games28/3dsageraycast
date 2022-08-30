@@ -3,6 +3,7 @@
 #include "olcPixelGameEngine.h"
 //#include "Textures.h"
 #include "textures/All_Textures.ppm"
+#include "textures/Sky.ppm"
 #include <math.h>
 #include <cmath>
 #define PI 3.1415926535
@@ -168,6 +169,7 @@ public:
 
 		anglenormalize(player.angle);
 		movePlayer(fElapsedTime);
+		drawSky();
 		drawMap();
 		drawRays3D();
 		FillRect(player.x, player.y, player.width, player.height, olc::GREEN);
@@ -239,7 +241,7 @@ public:
 		
 		anglenormalize(ra);
 
-		FillRect(530, 0, 60 * 8, 160, olc::CYAN);
+		//FillRect(530, 0, 60 * 8, 160, olc::CYAN);
 		//FillRect(530, 160, 60 * 8, 160, olc::BLUE);
 		for(int r = 0; r < 60; r++)
 		{	
@@ -323,13 +325,13 @@ public:
 			
 			DrawLine(player.x, player.y, rx, ry, olc::GREEN);
 			
-			draw3DWalls(disT,ra,r, shade,rx,ry, mt);
+			draw3DWalls(disT,ra,r, shade,rx,ry, mt, mp);
 			ra += DR;
 			anglenormalize(ra);
 		}
 	}
 
-	void draw3DWalls(float disT, float ra, int r, float shade, float rx, float ry, int mt)
+	void draw3DWalls(float disT, float ra, int r, float shade, float rx, float ry, int mt, int mp)
 	{
 
 		//std::cout << "player angle: " << player.angle << " ra: " << ra << std::endl;
@@ -367,9 +369,6 @@ public:
 		
 		for (y = 0; y < lineH; y++)
 		{
-			
-
-			
 			int pixel = ((int)ty * 32 + (int)tx) * 3 +(mt * 32 * 32 * 3);
 			int red = ALL_Textures[pixel + 0] * shade;
 			int green = ALL_Textures[pixel + 1] * shade;
@@ -377,7 +376,8 @@ public:
 			
 			olc::Pixel Testp = olc::Pixel(red, green, blue);
 			
-			FillRect(r * 8 + 530, lineO + y, 8, 1, Testp);
+				FillRect(r * 8 + 530, lineO + y, 8, 1, Testp);
+			
 			ty += ty_step;
 		}
 
@@ -398,16 +398,50 @@ public:
 
 			int mp = mapF[(int)(ty / 32.0f) * mapx + (int)(tx / 32.0f)] * 32 * 32;
 
-			float c = ALL_Textures[((int)(ty) & 31) * 32 + ((int)(tx) & 31) + mp] * 0.7f;
-			olc::Pixel p = olc::PixelF(c / 1.3,c / 1.3,c);
-			FillRect(r * 8 + 530, y, 8, 1, p); 
+			int pixel = (((int)ty & 31 )* 32 + ((int)tx & 31)) * 3 + mp * 3;
+			int red = ALL_Textures[pixel + 0] * 0.7;
+			int green = ALL_Textures[pixel + 1] * 0.7;
+			int blue = ALL_Textures[pixel + 2] * 0.7;
+
+			olc::Pixel Testp = olc::Pixel(red, green, blue);
+
+			FillRect(r * 8 + 530,y, 8, 1, Testp);
+
+			
 
 			//draw ceiling
 			mp = mapC[(int)(ty / 32.0f) * mapx + (int)(tx / 32.0f)] * 32 * 32;
 
-			c = ALL_Textures[((int)(ty) & 31) * 32 + ((int)(tx) & 31) + mp] * 0.7f;
-			p = olc::PixelF(c / 2.0, c / 1.2, c / 2.0);
-			FillRect(r * 8 + 530, 320 - y, 8, 1, p);
+			pixel = (((int)ty & 31) * 32 + ((int)tx & 31)) * 3 + mp * 3;
+			red = ALL_Textures[pixel + 0];
+			green = ALL_Textures[pixel + 1];
+			blue = ALL_Textures[pixel + 2];
+
+			Testp = olc::Pixel(red, green, blue);
+			if (mp > 0) {
+				FillRect(r * 8 + 530, 320 - y, 8, 1, Testp);
+			}
+		}
+	}
+
+	void drawSky()
+	{
+		int x, y;
+		for (y = 0; y < 40; y++)
+		{
+			for (x = 0; x < 120; x++)
+			{
+				int xo = ((int)player.angle * 2) + x; if (xo < 0) { xo += 120; } xo = xo % 120;
+				int pixel = (y * 120 + xo) * 3;
+
+				int red =    sky[pixel + 0];
+				int green =  sky[pixel + 1];
+				int blue =   sky[pixel + 2];
+
+				olc::Pixel Testp = olc::Pixel(red, green, blue);
+
+				FillRect(x * 4 + 530, y * 4, 4, 4, Testp);
+			}
 		}
 	}
 

@@ -27,4 +27,8 @@
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="textures\All_Textures.ppm" />
+    <None Include="textures\Sky.ppm" />
+  </ItemGroup>
 </Project>
