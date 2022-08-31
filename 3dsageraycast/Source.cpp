@@ -243,7 +243,7 @@ public:
 
 		//FillRect(530, 0, 60 * 8, 160, olc::CYAN);
 		//FillRect(530, 160, 60 * 8, 160, olc::BLUE);
-		for(int r = 0; r < 60; r++)
+		for(int r = 0; r < 120; r++)
 		{	
 			int vmt = 0, hmt = 0, mt = 0; //vertical and horizontal map texture number
 			//horizontal line check
@@ -327,7 +327,7 @@ public:
 			
 			draw3DWalls(disT,ra,r, shade,rx,ry, mt, mp);
 			ra += DR;
-			anglenormalize(ra);
+			//anglenormalize(ra);
 		}
 	}
 
@@ -422,6 +422,7 @@ public:
 				FillRect(r * 8 + 530, 320 - y, 8, 1, Testp);
 			}
 		}
+		ra = FixAng(ra - 0.5);
 	}
 
 	void drawSky()
@@ -431,7 +432,7 @@ public:
 		{
 			for (x = 0; x < 120; x++)
 			{
-				int xo = ((int)player.angle * 2) + x; if (xo < 0) { xo += 120; } xo = xo % 120;
+				int xo = ((int)(player.angle * 180 /3.14159f) * 2 ) + x; if (xo < 0) { xo += 120; } xo = xo % 120;
 				int pixel = (y * 120 + xo) * 3;
 
 				int red =    sky[pixel + 0];
