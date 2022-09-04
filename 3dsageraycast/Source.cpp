@@ -2,8 +2,11 @@
 
 #include "olcPixelGameEngine.h"
 //#include "Textures.h"
-#include "textures/All_Textures.ppm"
+#include "textures/All_Texture.ppm"
 #include "textures/Sky.ppm"
+#include "textures/title.ppm"
+#include "textures/won.ppm"
+#include "textures/lost.ppm"
 #include <math.h>
 #include <cmath>
 #define PI 3.1415926535
@@ -49,58 +52,85 @@ public:
 		sAppName = "Raycaster";
 	}
 
-	int mapW[mapx * mapy] =
+	int mapW[mapx * mapy] =          //walls
 	{
-		1,1,1,1,1,2,1,1,
-		1,0,0,1,0,0,0,1,
-		1,0,0,3,0,0,0,1,
-		1,1,3,1,0,0,0,1,
-		1,0,0,0,0,0,0,1,
-		1,0,0,0,1,0,0,1,
-		1,0,0,0,1,0,0,1,
-		1,1,2,1,1,4,1,1,
+	 1,1,1,1,2,2,2,2,
+	 6,0,0,1,0,0,0,2,
+	 1,0,0,4,0,2,0,2,
+	 1,5,4,5,0,0,0,2,
+	 2,0,0,0,0,0,0,1,
+	 2,0,0,0,0,1,0,1,
+	 2,0,0,0,0,0,0,1,
+	 1,1,1,1,1,1,1,1,
 	};
 
-	int mapF[mapx * mapy] =
+	int mapF[mapx * mapy] =          //floors
 	{
-		0,0,0,0,0,0,0,0,
-		0,0,0,1,0,0,0,0,
-		0,0,0,3,0,2,0,0,
-		0,1,0,1,0,0,0,0,
-		0,0,0,0,0,0,0,0,
-		0,0,0,0,0,4,0,0,
-		0,0,1,0,4,0,0,0,
-		0,0,0,0,0,0,0,0,
+	 0,0,0,0,0,0,0,0,
+	 0,0,0,0,2,2,2,0,
+	 0,0,0,0,6,0,2,0,
+	 0,0,8,0,2,7,6,0,
+	 0,0,2,0,0,0,0,0,
+	 0,0,2,0,8,0,0,0,
+	 0,1,1,1,1,0,8,0,
+	 0,0,0,0,0,0,0,0,
 	};
 
-	int mapC[mapx * mapy] =
+	int mapC[mapx * mapy] =          //ceiling
 	{
-		0,0,0,0,0,0,0,0,
-		0,0,0,1,0,0,0,0,
-		0,0,2,0,0,2,0,0,
-		0,1,0,1,0,0,0,2,
-		0,0,0,0,0,0,0,0,
-		0,0,0,0,0,4,0,0,
-		0,0,1,0,1,0,0,0,
-		0,0,0,0,0,0,0,0,
+	 0,0,0,0,0,0,0,0,
+	 0,0,0,0,0,0,0,0,
+	 0,0,0,0,0,0,0,0,
+	 0,0,0,0,0,0,0,0,
+	 0,4,2,4,0,0,0,0,
+	 0,0,2,0,0,0,0,0,
+	 0,0,2,0,0,0,0,0,
+	 0,0,0,0,0,0,0,0,
 	};
+
+	typedef struct
+	{
+		int type; // static, key, enemy
+		int state; // on or off
+		int map;// texture to show
+		int x, y, z; //position
+
+	}sprite; sprite sp[4];
+
+	void drawSprite()
+	{
+		float sx = sp[0].x - player.x; // temp float variables
+		float sy = sp[0].y - player.y;
+		float sz = sp[0].z;
+
+		float CS = cos(player.angle), SN = sin(player.angle); //rotate around origin
+		float a = sy * CS + sx * SN;
+		float b = sx * CS - sy * SN;
+		sx = a; sy = b;
+
+		sx = (sx * 108.0f / sy) + (120 / 2); // convert to screen x ,y
+		sy = (sz * 108.0f / sy) + (80 / 2);
+		FillRect(sx * 8, sy * 8, 8,8, olc::BLUE);
+	}
 
 public:
 	bool OnUserCreate() override
 	{
+		sp[0].type = 1; sp[0].map = 0; sp[0].x = 5 * 64; sp[0].y = 5 * 64; sp[0].z = 20; //sprite 1
 
-		player.x = float(mapx * mapsize / 5);
-		player.y = float(mapy * mapsize / 2);
+		playerposition();
 		player.width = 4;
 		player.height = 4;
 		player.turnDirection = 0;
 		player.walkDirection = 0;
 		player.strafeDirection = 0;
 		player.rotationAngle = 2 * PI / 3;
-		player.angle = 90 * (3.14159 / 180);
+		
 		player.walkSpeed = 100;
 		player.turnSpeed = 45 * (PI / 180);
 		player.fFOV = 3.14159f / 4.0f;
+
+		
 
 		return true;
 	}
@@ -108,76 +138,105 @@ public:
 	bool OnUserUpdate(float fElapsedTime) override
 	{
 		Clear(olc::DARK_GREY);
-		
+		if (gameState == 0) { fade = 0; timer = 0; gameState = 1; } //init game
+		if (gameState == 1) {
+			mapW[19] = 4; mapW[26] = 4; //close door
+			screen(1); 
+			timer += 1; 
+			
+		if (timer > 100) 
+		{ 
 
-
-		if (GetKey(olc::Key::W).bHeld)
-			player.walkDirection = +1; //up
-		if (GetKey(olc::Key::S).bHeld)
-			player.walkDirection = -1; //down
-		if (GetKey(olc::Key::A).bHeld)
-			player.turnDirection = -1; //left
-		if (GetKey(olc::Key::D).bHeld)
-			player.turnDirection = +1; //right
-		
-		if (GetKey(olc::Key::E).bPressed) //open doors
+			fade = 0;
+			timer = 0; 
+			gameState = 2; }
+		}  //start screen
+		if (gameState == 2) 
 		{
 
-			float pdx = cos(player.angle);
-			float pdy = sin(player.angle);
+			if (GetKey(olc::Key::W).bHeld)
+				player.walkDirection = +1; //up
+			if (GetKey(olc::Key::S).bHeld)
+				player.walkDirection = -1; //down
+			if (GetKey(olc::Key::A).bHeld)
+				player.turnDirection = -1; //left
+			if (GetKey(olc::Key::D).bHeld)
+				player.turnDirection = +1; //right
 
-			int xo = 0; 
-			if (pdx < 0) 
-			{ 
-				xo = -40; 
-			} 
-			else
+			if (GetKey(olc::Key::E).bPressed) //open doors
 			{
-				xo = 40;
-			}
-			int yo = 0; 
-			if (pdy < 0) 
-			{ 
-				yo = -40; 
-			}
-			else 
-			{ 
-				yo = 40; 
+
+				float pdx = cos(player.angle);
+				float pdy = sin(player.angle);
+
+				int xo = 0;
+				if (pdx < 0)
+				{
+					xo = -25;
+				}
+				else
+				{
+					xo = 25;
+				}
+				int yo = 0;
+				if (pdy < 0)
+				{
+					yo = -25;
+				}
+				else
+				{
+					yo = 25;
+				}
+
+				int ipx = player.x / 64.0f, ipx_add_xo = (player.x + xo) / 64.0f;
+				int ipy = player.y / 64.0f, ipy_add_yo = (player.y + yo) / 64.0f;
+				int i = mapW[ipy_add_yo * mapx + ipx_add_xo];
+
+				if (mapW[ipy_add_yo * mapx + ipx_add_xo] == 4)
+				{
+					mapW[ipy_add_yo * mapx + ipx_add_xo] = 0;
+				}
+
+
 			}
 
-			int ipx = player.x / 64.0f, ipx_add_xo = (player.x + xo) / 64.0f;
-			int ipy = player.y / 64.0f, ipy_add_yo = (player.y + yo) / 64.0f;
+			if (GetKey(olc::Key::W).bReleased)
+				player.walkDirection = 0; //up
+			if (GetKey(olc::Key::S).bReleased)
+				player.walkDirection = 0; //down
+			if (GetKey(olc::Key::A).bReleased)
+				player.turnDirection = 0; //left
+			if (GetKey(olc::Key::D).bReleased)
+				player.turnDirection = 0; //right
 
-			
-			if (mapW[ipy_add_yo * mapx + ipx_add_xo] == 3)
-			{
-				mapW[ipy_add_yo * mapx + ipx_add_xo] = 0;
-			}
-			
-			
+
+			anglenormalize(player.angle);
+			movePlayer(fElapsedTime);
+			drawSky();
+			//drawMap();
+			drawRays3D();
+			drawSprite();
+
+			if ((int)player.x >> 6 == 1 && (int)player.y >> 6 == 1) { 
+				fade = 0; timer = 0; gameState = 3; }
 		}
 
-		if (GetKey(olc::Key::W).bReleased)
-			player.walkDirection = 0; //up
-		if (GetKey(olc::Key::S).bReleased)
-			player.walkDirection = 0; //down
-		if (GetKey(olc::Key::A).bReleased)
-			player.turnDirection = 0; //left
-		if (GetKey(olc::Key::D).bReleased)
-			player.turnDirection = 0; //right
-		
-
-		anglenormalize(player.angle);
-		movePlayer(fElapsedTime);
-		drawSky();
-		drawMap();
-		drawRays3D();
-		FillRect(player.x, player.y, player.width, player.height, olc::GREEN);
-		DrawLine(player.x, player.y, player.x + cos(player.angle) * 5, player.y + sin(player.angle) * 5, olc::GREEN);
-		
+		if (gameState == 3) {
+			screen(2); timer += 1; if (timer > 100) {
+				playerposition();
+				player.turnDirection = 0;
+				player.walkDirection = 0;
+			fade = 0; timer = 0; gameState = 0; }
+		}
 		return true;
 	}
 
+	void playerposition()
+	{
+		player.x = float(mapx * mapsize / 5);
+		player.y = float(mapy * mapsize / 2);
+		player.angle = 90 * (3.14159 / 180);
+	}
 	void anglenormalize(float& angle)
 	{
 		angle = remainder(angle, 2 * PI);
@@ -323,11 +382,11 @@ public:
 			if (disV < disH) { mt = vmt; shade = 0.5f; rx = vx; ry = vy; disT = disV; }
 			if (disH < disV) { mt = hmt; rx = hx; ry = hy; disT = disH; }
 			
-			DrawLine(player.x, player.y, rx, ry, olc::GREEN);
+			
 			
 			draw3DWalls(disT,ra,r, shade,rx,ry, mt, mp);
-			ra += DR;
-			//anglenormalize(ra);
+			ra += DR * 0.5;
+			anglenormalize(ra);
 		}
 	}
 
@@ -338,17 +397,17 @@ public:
 		float ca = player.angle - ra;
 		float newDisT = disT;
 		newDisT *= cos(ca);
-		float lineH = (mapsize * 320) / newDisT;
+		float lineH = (mapsize * 640) / newDisT;
 		float ty_step = 32.0f / (float)lineH;
 		float ty_off = 0;
 
-		if (lineH > 320.0f)
+		if (lineH > 640.0f)
 		{
-			ty_off = (lineH - 320) / 2.0f;
-			lineH = 320.0f;
+			ty_off = (lineH - 640) / 2.0f;
+			lineH = 640.0f;
 		}
 
-		float lineO = 160 - lineH / 2.0f;
+		float lineO = 320 - lineH / 2.0f;
 
 		//draws walls
 		int y;
@@ -370,26 +429,26 @@ public:
 		for (y = 0; y < lineH; y++)
 		{
 			int pixel = ((int)ty * 32 + (int)tx) * 3 +(mt * 32 * 32 * 3);
-			int red = ALL_Textures[pixel + 0] * shade;
-			int green = ALL_Textures[pixel + 1] * shade;
-			int blue = ALL_Textures[pixel + 2] * shade;
+			int red = All_Texture[pixel + 0] * shade;
+			int green = All_Texture[pixel + 1] * shade;
+			int blue = All_Texture[pixel + 2] * shade;
 			
 			olc::Pixel Testp = olc::Pixel(red, green, blue);
 			
-				FillRect(r * 8 + 530, lineO + y, 8, 1, Testp);
+				FillRect(r * 8, lineO + y, 8, 1, Testp);
 			
 			ty += ty_step;
 		}
 
 		//draw floors
-		for (y = lineO + lineH; y < 320; y++)
+		for (y = lineO + lineH; y < 640; y++)
 		{
-			float dy = y - (320 / 2.0f), deg = ra, raFix = cos(player.angle - ra);
+			float dy = y - (640 / 2.0f), deg = ra, raFix = cos(player.angle - ra);
 			//tx = player.x / 2 + cos(deg) * 158 * 32 / dy / raFix;
 			//ty = player.y / 2 +sin(deg) * 158 * 32 / dy / raFix;
 			float fPlayerTexX = player.x / 2;
 			float fPlayerTexY = player.y / 2;
-			float fDistToScreen = 158;
+			float fDistToScreen = 158 * 2;
 			float fPlayerHeight = 32;
 			float fPrepDistance = fDistToScreen * fPlayerHeight / dy;
 			float fFinalDistance = fPrepDistance / raFix;
@@ -399,13 +458,13 @@ public:
 			int mp = mapF[(int)(ty / 32.0f) * mapx + (int)(tx / 32.0f)] * 32 * 32;
 
 			int pixel = (((int)ty & 31 )* 32 + ((int)tx & 31)) * 3 + mp * 3;
-			int red = ALL_Textures[pixel + 0] * 0.7;
-			int green = ALL_Textures[pixel + 1] * 0.7;
-			int blue = ALL_Textures[pixel + 2] * 0.7;
+			int red = All_Texture[pixel + 0] * 0.7;
+			int green = All_Texture[pixel + 1] * 0.7;
+			int blue = All_Texture[pixel + 2] * 0.7;
 
 			olc::Pixel Testp = olc::Pixel(red, green, blue);
 
-			FillRect(r * 8 + 530,y, 8, 1, Testp);
+			FillRect(r * 8 ,y, 8, 1, Testp);
 
 			
 
@@ -413,13 +472,13 @@ public:
 			mp = mapC[(int)(ty / 32.0f) * mapx + (int)(tx / 32.0f)] * 32 * 32;
 
 			pixel = (((int)ty & 31) * 32 + ((int)tx & 31)) * 3 + mp * 3;
-			red = ALL_Textures[pixel + 0];
-			green = ALL_Textures[pixel + 1];
-			blue = ALL_Textures[pixel + 2];
+			red = All_Texture[pixel + 0];
+			green = All_Texture[pixel + 1];
+			blue = All_Texture[pixel + 2];
 
 			Testp = olc::Pixel(red, green, blue);
 			if (mp > 0) {
-				FillRect(r * 8 + 530, 320 - y, 8, 1, Testp);
+				FillRect(r * 8, 640 - y, 8, 1, Testp);
 			}
 		}
 		ra = FixAng(ra - 0.5);
@@ -441,9 +500,37 @@ public:
 
 				olc::Pixel Testp = olc::Pixel(red, green, blue);
 
-				FillRect(x * 4 + 530, y * 4, 4, 4, Testp);
+				FillRect(x * 8, y * 8, 8, 8, Testp);
 			}
 		}
+	}
+
+	void screen(int v)
+	{
+		int x, y;
+		int* T = nullptr;
+		if (v == 1) { T = title; }
+		if (v == 2) { T = won; }
+		if (v == 3) { T = lost; }
+
+		for (y = 0; y < 80; y++)
+		{
+			for (x = 0; x < 120; x++)
+			{
+				
+				int pixel = (y * 120 + x) * 3;
+
+				int red = T[pixel + 0] * fade;
+				int green = T[pixel + 1] * fade;
+				int blue = T[pixel + 2] * fade;
+
+				olc::Pixel Testp = olc::Pixel(red, green, blue);
+
+				FillRect(x * 8, y * 8, 8, 8, Testp);
+			}
+		}
+		if (fade < 1) { fade += 0.05f; }
+		if (fade > 1) { fade = 1; }
 	}
 
 	bool hasWallAt(float x, float y)
@@ -460,14 +547,14 @@ public:
 	
 public:
 
-
-
+	int gameState = 0, timer = 0;
+	float fade = 0;
 };
 
 int main()
 {
 	Raycaster game;
-	if (game.Construct(1024, 512, 1, 1))
+	if (game.Construct(960, 640, 1, 1))
 	{
 		game.Start();
 	}

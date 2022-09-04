@@ -30,5 +30,9 @@
   <ItemGroup>
     <None Include="textures\All_Textures.ppm" />
     <None Include="textures\Sky.ppm" />
+    <None Include="textures\lose.ppm" />
+    <None Include="textures\title.ppm" />
+    <None Include="textures\win.ppm" />
+    <None Include="textures\All_Texture.ppm" />
   </ItemGroup>
 </Project>
