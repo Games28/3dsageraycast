@@ -4,6 +4,9 @@
 #include "textures/Ttest.ppm"
 #include "textures/All_Textures.ppm"
 #include "textures/sky.ppm"
+#include "textures/won.ppm"
+#include "textures/lost.ppm"
+#include "textures/title.ppm"
 #include <math.h>
 #include <cmath>
 #define PI 3.1415926535
@@ -21,6 +24,14 @@ typedef struct
 {
 	int w, a, d, s; // button state on and off
 }ButtonKeys; ButtonKeys keys;
+
+typedef struct
+{
+	int type;
+	int state;
+	int map;
+	int x, y, z;
+}sprite; sprite sp[4];
 
 class Raycaster : public olc::PixelGameEngine
 {
@@ -78,13 +89,32 @@ public:
 
 	bool OnUserUpdate(float fElapsedTime) override
 	{
-		Clear(olc::DARK_GREY);
-		buttons(fElapsedTime);
-		drawMap2D();
-		drawPlayer();
-		drawRays3D();
 		
-		drawSky();
+		Clear(olc::DARK_GREY);
+		if (gameState == 0) { 
+			mapW[19] = 4; mapW[26] = 4; fade = 0; timer = 0; gameState = 1;
+			sp[0].type = 1; sp[0].state = 1; sp[0].map = 0; sp[0].x = 1.5 * 64; sp[0].y = 5 * 64; sp[0].z = 20;
+		}
+		if (gameState == 1) {  screen(1);  timer += 1; if (timer > 50) { fade = 0; timer = 0; gameState = 2; } }
+		if (gameState == 2)
+		{
+			buttons(fElapsedTime);
+			drawSky();
+			//drawMap2D();
+			//drawPlayer();
+			drawRays3D();
+			drawSprite();
+			if ((int)px>>6 == 1 && (int)py>>6 == 1)
+			{ 
+				fade = 0;
+				timer = 0; 
+				gameState = 3; 
+			}
+
+		}
+		if (gameState == 3) { screen(2);  timer += 1; if (timer > 50) { px = 300; py = 300; fade = 0; timer = 0; gameState = 0; } }
+		
+		
 
 		return true;
 	}
@@ -107,14 +137,14 @@ public:
 		
 		if (GetKey(olc::Key::W).bHeld) 
 		{
-			if (mapW[ipy * mapX + ipx_add_xo] == 0) { px += pdx * 0.5; }
-			if (mapW[ipy_add_yo * mapX + ipx] == 0) { py += pdy * 0.5; }
+			if (mapW[ipy * mapX + ipx_add_xo] == 0) { px += pdx * 0.7; }
+			if (mapW[ipy_add_yo * mapX + ipx] == 0) { py += pdy * 0.7; }
 			
 		}
 		if (GetKey(olc::Key::S).bHeld) 
 		{
-			if (mapW[ipy * mapX + ipx_sub_xo] == 0) { px -= pdx * 0.5; }
-			if (mapW[ipy_sub_yo * mapX + ipx] == 0) { py -= pdy * 0.5; }
+			if (mapW[ipy * mapX + ipx_sub_xo] == 0) { px -= pdx * 0.7; }
+			if (mapW[ipy_sub_yo * mapX + ipx] == 0) { py -= pdy * 0.7; }
 		}
 		if (GetKey(olc::Key::A).bHeld) 
 		{
@@ -172,6 +202,21 @@ public:
 
 	// draw functions
 
+	void drawSprite()
+	{
+		float sx = sp[0].x - px;
+		float sy = sp[0].y - py;
+		float sz = sp[0].z;
+
+		float CS = cos(pa), SN = sin(pa);
+		float a = sy * CS + sx * SN;
+		float b = sx * CS - sy * SN;
+		sx = a; sy = b;
+		sx = (sx * 108.0 / sy) + (120 / 2);
+		sy = (sz * 108.0 / sy) + (80 / 2);
+		FillRect(sx * 8, sy * 8, 8, 8, olc::PixelF(0, 100, 255));
+	}
+
 	void drawPlayer()
 	{
 		FillRect(px, py, 4, 4, olc::GREEN);
@@ -205,9 +250,9 @@ public:
 	{
 		int x, y;
 
-		for (y = 0; y < 40; y++)
+		for (y = 0; y < 70; y++)
 		{
-			for (x = 0; x < 120; x++)
+			for (x = 0; x < ScreenWidth(); x++)
 			{
 				int xo = (int)pa * 2 - x; if (xo < 0) { xo += 120; } xo = xo % 120;
 				int pixel = (y * 120 + xo) * 3;
@@ -215,20 +260,42 @@ public:
 				int green = sky[pixel + 1];
 				int blue = sky[pixel + 2];
 
-				FillRect(x * 4 + 530, y * 4, 4, 4, olc::Pixel(red, green, blue));
+				FillRect(x * 8 , y * 8, 8, 8, olc::Pixel(red, green, blue));
 			}
 		}
 		
 	}
 
+	void screen(int v)
+	{
+		int x, y;
+		int* T = nullptr;
+		if (v == 1) { T = title; }
+		if (v == 2) { T = won; }
+		if (v == 3) { T = lost; }
+		for (y = 0; y < 80; y++)
+		{
+			for (x = 0; x < 120; x++)
+			{
+				
+				int pixel = (y * 120 + x) * 3;
+				int red = T[pixel + 0] * fade;
+				int green = T[pixel + 1] * fade;
+				int blue = T[pixel + 2] * fade;
+
+				FillRect(x * 8, y * 8, 8, 8, olc::Pixel(red, green, blue));
+			}
+		}
+		if (fade < 1) { fade += 0.05f; }
+		if (fade > 1) { fade = 1; }
+	}
 	void drawRays3D()
 	{
 		int r, mapx, mapy, map, dof;  float rx, ry, ra, xo, yo, disT;
 		ra = pa - DR * 30;
 		anglenormalize(ra);
-		FillRect(530, 0, 60 * 8, 160, olc::CYAN);
-		FillRect(530, 160, 60 * 8, 160, olc::BLUE);
-		for (r = 0; r < 60; r++)
+		
+		for (r = 0; r < 120; r++)
 		{
 			//check horizontial lines
 			int vmt = 0, hmt = 0, mt = 0;
@@ -332,22 +399,22 @@ public:
 			} 
 
 			
-			DrawLine(px , py , rx, ry, olc::CYAN);
+			//DrawLine(px , py , rx, ry, olc::CYAN);
 
 			//Draw 3d walls
 			float ca = pa - ra;
 			if (ca < 0) { ca += 2 * PI; } 
 			if (ca > 2 * PI) { ca -= 2 * PI;}
 			disT = disT * cos(ca);
-			float lineH = (mapS * 320) / disT; 
+			float lineH = (mapS * 640) / disT; 
 			float ty_step = 32.0 / lineH;
 			float ty_off = 0;
-			if (lineH > 320) 
+			if (lineH > 640) 
 			{
-				ty_off = (lineH - 320) / 2.0;
-				lineH = 320; 
+				ty_off = (lineH - 640) / 2.0;
+				lineH = 640; 
 			} //line height
-			float lineO = 160 - lineH / 2;
+			float lineO = 320 - lineH / 2;
 			
 
 			//draw walls
@@ -375,43 +442,44 @@ public:
 			 
 
 					
-				FillRect(r * 8 + 530, lineO + y, 8, 1, olc::Pixel(red, green, blue));
+				FillRect(r * 8, lineO + y, 8, 1, olc::Pixel(red, green, blue));
 				ty += ty_step;
 			}
 
 			//draw floors
-			for (y = lineO + lineH; y < 320; y++)
+			for (y = lineO + lineH; y < 640; y++)
 			{
 				olc::Pixel p;
-				float dy = y - (320 / 2.0), deg = ra, raFix = cos(pa - ra);
+				float dy = y - (640 / 2.0), deg = ra, raFix = cos(pa - ra);
 				
 				float fPlayerTexX = px / 2;
 				float fPlayerTexY = py / 2;
-				float fDistToScreen = 158;
+				float fDistToScreen = 158 * 2;
 				float fPlayerHeight = 32;
 				float fPrepDistance = fDistToScreen * fPlayerHeight / dy;
 				float fFinalDistance = fPrepDistance / raFix;
 				tx = fPlayerTexX + cos(deg) * fFinalDistance;
 				ty = fPlayerTexY + sin(deg) * fFinalDistance;
-
+			
 				int mp = mapF[(int)(ty / 32.0) * mapX + (int)(tx / 32.0)] * 32 * 32;
 				int pixel = (((int)ty & 31) * 32 + ((int)tx & 31)) * 3 + mp * 3;
 				int red = All_Textures[pixel + 0] * 0.7;
 				int green = All_Textures[pixel + 1] * 0.7;
 				int blue = All_Textures[pixel + 2] * 0.7;
-				FillRect(r * 8 + 530, y, 8, 1, olc::Pixel(red, green, blue));
-
+				FillRect(r * 8, y, 8, 1, olc::Pixel(red, green, blue));
+			
 				//draw ceiling
 				mp = mapC[(int)(ty / 32.0) * mapX + (int)(tx / 32.0)] * 32 * 32;
 				pixel = (((int)ty & 31) * 32 + ((int)tx & 31)) * 3 + mp * 3;
 				red = All_Textures[pixel + 0];
 				green = All_Textures[pixel + 1];
 				blue = All_Textures[pixel + 2];
-
+			
 				
-				FillRect(r * 8 + 530,320 - y, 8, 1, olc::Pixel(red, green, blue));
+				if(mp > 0)
+					FillRect(r * 8,640 - y, 8, 1, olc::Pixel(red, green, blue));
 			}
-			ra += DR;
+			ra += DR * 0.5;
 			anglenormalize(ra);
 		}
 	}
@@ -424,14 +492,14 @@ public:
 public:
 	float px, py, pdx,pdy,pa; //player
 	int mapX = 8, mapY = 8;
-
-	
+	int gameState = 0, timer = 0;
+	float fade = 0;
 };
 
 int main()
 {
 	Raycaster game;
-	if (game.Construct(1024, 512, 1, 1))
+	if (game.Construct(960, 640  , 1, 1))
 	{
 		game.Start();
 	}
