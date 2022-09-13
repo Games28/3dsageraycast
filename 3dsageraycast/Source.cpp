@@ -76,13 +76,16 @@ public:
 	 0,0,0,0,0,0,0,0,
 	 0,0,0,0,0,0,0,0,
 	};
-	
-public:
-	bool OnUserCreate() override
+	void init()
 	{
 		px = 300; py = 300; pa = 1.73f;
 		pdx = cos(pa) * 5; pdy = sin(pa) * 5;
-		
+		sp[0].type = 1; sp[0].state = 1; sp[0].map = 0; sp[0].x = 1.5 * 64; sp[0].y = 5 * 64; sp[0].z = 20;
+	 }
+public:
+	bool OnUserCreate() override
+	{
+		init();
 
 		return true;
 	}
@@ -93,7 +96,7 @@ public:
 		Clear(olc::DARK_GREY);
 		if (gameState == 0) { 
 			mapW[19] = 4; mapW[26] = 4; fade = 0; timer = 0; gameState = 1;
-			sp[0].type = 1; sp[0].state = 1; sp[0].map = 0; sp[0].x = 1.5 * 64; sp[0].y = 5 * 64; sp[0].z = 20;
+			
 		}
 		if (gameState == 1) {  screen(1);  timer += 1; if (timer > 50) { fade = 0; timer = 0; gameState = 2; } }
 		if (gameState == 2)
@@ -208,13 +211,13 @@ public:
 		float sy = sp[0].y - py;
 		float sz = sp[0].z;
 
-		float CS = cos(pa), SN = sin(pa);
+		float CS = cos(degToRad(pa)), SN = sin(degToRad(pa));
 		float a = sy * CS + sx * SN;
 		float b = sx * CS - sy * SN;
 		sx = a; sy = b;
 		sx = (sx * 108.0 / sy) + (120 / 2);
 		sy = (sz * 108.0 / sy) + (80 / 2);
-		FillRect(sx * 8, sy * 8, 8, 8, olc::PixelF(0, 100, 255));
+		FillRect(sx * 8, sy * 8, 8, 8, olc::Pixel(0, 100, 255));
 	}
 
 	void drawPlayer()
@@ -248,18 +251,21 @@ public:
 
 	void drawSky()
 	{
+		
 		int x, y;
-
-		for (y = 0; y < 70; y++)
+		
+		for (y = 0; y < 40; y++)
 		{
-			for (x = 0; x < ScreenWidth(); x++)
+			for (x = 0; x < 120; x++)
 			{
-				int xo = (int)pa * 2 - x; if (xo < 0) { xo += 120; } xo = xo % 120;
+				int xo = ((int)(pa  * 180 / 3.141589f)* 2) + x;
+				if (xo < 0) { xo += 120; }
+				xo = xo % 120;
 				int pixel = (y * 120 + xo) * 3;
 				int red = sky[pixel + 0];
 				int green = sky[pixel + 1];
 				int blue = sky[pixel + 2];
-
+		
 				FillRect(x * 8 , y * 8, 8, 8, olc::Pixel(red, green, blue));
 			}
 		}
