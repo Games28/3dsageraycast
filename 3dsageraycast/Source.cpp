@@ -9,10 +9,14 @@
 #include "textures/title.ppm"
 #include <math.h>
 #include <cmath>
-#define PI 3.1415926535
+#define PI 3.1415926535f
 #define P2 PI / 2
 #define P3 3 * PI / 2
 #define DR 0.0174533 // one degree in radians
+#define MOVE_SPEED 50.0f
+#define MOVE_FRACTION 0.1f
+#define EPSILON 0.00001f
+
 
 
 constexpr int mapS = 64;
@@ -106,6 +110,7 @@ public:
 			//drawMap2D();
 			//drawPlayer();
 			drawRays3D();
+			
 			drawSprite();
 			if ((int)px>>6 == 1 && (int)py>>6 == 1)
 			{ 
@@ -297,113 +302,131 @@ public:
 	}
 	void drawRays3D()
 	{
-		int r, mapx, mapy, map, dof;  float rx, ry, ra, xo, yo, disT;
+		int r, mapx, mapy, map, dof;  float rx, ry, ra,vx,vy, xo, yo, disT, disV, disH;
+		int vmt = 0, hmt = 0, mt = 0;
 		ra = pa - DR * 30;
 		anglenormalize(ra);
 		
 		for (r = 0; r < 120; r++)
 		{
-			//check horizontial lines
-			int vmt = 0, hmt = 0, mt = 0;
-			dof = 0;                         
-			float disH = 100000, hx = px, hy = py; 
-			if (ra > PI)  // looking up
-			{
-				ry = (((int)py / 64) * 64 ) - 0.0001;
-				rx = (py - ry) / -tan(ra) + px;
-				yo = -64;
-				xo = -yo / -tan(ra);
-			
-			}
-			
-			if (ra < PI) // looking down
-			{
-				ry = (((int)py / 64) * 64) + 64;
-				rx = (py - ry) / -tan(ra) + px;
-				yo = 64;
-				xo = -yo / -tan(ra);
-			
-			}
-			
-			if (ra == 0 || ra == PI) //looking straight left or right
-			{
-				rx = px; ry = py; dof = 8;
-			}
-			int mv = 0, mh = 0;
-			while (dof < 8)
-			{
-				mapx = (int)(rx) / 64;
-				mapy = (int)(ry) / 64; 
-				map = mapy * mapX + mapx;
-				if (map > 0 && map < mapX * mapY && mapW[map] > 0) 
-				{ 
-					hmt = mapW[map] - 1;
-					hx = rx; hy = ry; disH = dist(px, py, hx, hy, ra);
-					dof = 8; 
-				}
-				else { rx += xo; ry += yo; dof += 1; }// hit wall
-			
-				//DrawCircle(rx, ry, 5, olc::GREEN);
-				
-
-			}
-			
 			//check vertical lines
 
 			dof = 0;
+			float Tan = tan(degToRad(ra));
 			float disV = 100000, vx = px, vy = py;
-			if (ra > P2 && ra < P3)     // looking left
+			if (cos(degToRad(ra)) > EPSILON)
 			{
-				rx = (((int)px / 64) * 64) - 0.0001;
-				ry = (px - rx) * -tan(ra) + py;
-				xo = -64;
-				yo = -xo * -tan(ra);
-			
-			}
-			
-			if (ra < P2 || ra > P3)      //looking right 
-			{
-				rx = (((int)px / 64) * 64) + 64;
-				ry = (px - rx) * -tan(ra) + py;
+				rx = (((int)px >> 6) << 6) + 64.0f;
+				ry = (px - rx) * Tan + py;
 				xo = 64;
-				yo = -xo * -tan(ra);
-			
-			}		
-			
-			if (ra == 0 || ra == PI) //looking straight up or down
+				yo = -xo * Tan;
+			}
+			else if (cos(degToRad(ra)) < EPSILON)
+			{
+				rx = (((int)px >> 6) << 6) - 0.0001f;
+				ry = (px - rx) * Tan + py;
+				xo = -64;
+				yo = -xo * Tan;
+
+			}
+			else
 			{
 				rx = px; ry = py; dof = 8;
 			}
+
 			while (dof < 8)
 			{
-				mapx = (int)(rx) / 64;
-				mapy = (int)(ry) / 64;
+				mapx = int(rx) >> 6;
+				mapy = int(ry) >> 6;
 				map = mapy * mapX + mapx;
-				if ( map > 0 && map < mapX * mapY && mapW[map] > 0)
+				if (map >= 0 && mapX * mapY && mapW[map] > 0)
 				{
-
 					vmt = mapW[map] - 1;
-					vx = rx; vy = ry; disV = dist(px, py, vx, vy, ra);
 					dof = 8;
-				}		
-				else { rx += xo; ry += yo; dof += 1; }// hit wall
-			
-				//DrawCircle(rx, ry, 5, olc::CYAN);
-				
+					disV = dist(px, py, rx, ry, ra);
+
+				}
+				else
+				{
+					rx += xo;
+					ry += yo;
+					dof += 1;
+				}
+
 			}
+			vx = rx;
+			vy = ry;
+
+			//check horizontial lines
+			
+			dof = 0;
+			disH = 100000;
+
+			Tan = 1.0f / Tan;
+
+			if (sin(degToRad(ra)) > EPSILON)
+			{
+				ry = (((int)py >> 6) << 6) - 0.0001f;
+				rx = (py - ry) * Tan + px;
+				yo = -64;
+				xo = -yo * Tan;
+
+			}
+			else if (sin(degToRad(ra)) < EPSILON)
+			{
+				ry = (((int)py >> 6) << 6) + 64.0f;
+				rx = (py - ry) * Tan + px;
+				yo = 64;
+				xo = -yo * Tan;
+			}
+			else
+			{
+				rx = px; ry = py; dof = 8;
+			}
+			
+			while (dof < 8)
+			{
+				mapx = int(rx) >> 6;
+				mapy = int(ry) >> 6;
+				map = mapy * mapX + mapx;
+				// if the index is within the map, check if there's a wall there
+				if (map >= 0 && map < mapX * mapY && mapW[map] > 0) {
+					hmt = mapW[map] - 1;// hit wall
+					dof = 8;                                   // set dof to 8 to end while loop
+					disH = dist(px, py, rx, ry, ra);     // store info to compare shortest hit length
+				}
+				else {  // no hit and dof < 8 --> check next line
+					rx += xo;
+					ry += yo;
+					dof += 1;
+				}
+				
+
+			}
+			vx = rx;
+			vy = ry;
+			
+
 			olc::Pixel p;
 			float shade = 1;
-			if (disV < disH)      //vertical wall hit
-			{
-				mt = vmt; shade = 0.5; rx = vx; ry = vy; disT = disV; p = olc::PixelF(0, 100, 255);
+			//if (disV < disH)      //vertical wall hit
+			//{
+			//	mt = vmt; shade = 0.5; rx = vx; ry = vy; disT = disV; p = olc::PixelF(0, 100, 255);
+			//	
+			//} 
+			//if (disH < disV)   //hortizontal wall hit
+			//{ 
+			//	mt = hmt; rx = hx; ry = hy; disT = disH; p = olc::PixelF(0, 70, 200);
+			//	
+			//} 
+			if (disV < disH) {
+				shade = 0.5;
+				hmt = vmt;// vertical   wall hit
+				rx = vx;
+				ry = vy;
+				disH = disV;
 				
-			} 
-			if (disH < disV)   //hortizontal wall hit
-			{ 
-				mt = hmt; rx = hx; ry = hy; disT = disH; p = olc::PixelF(0, 70, 200);
-				
-			} 
-
+			}
 			
 			//DrawLine(px , py , rx, ry, olc::CYAN);
 
@@ -411,8 +434,8 @@ public:
 			float ca = pa - ra;
 			if (ca < 0) { ca += 2 * PI; } 
 			if (ca > 2 * PI) { ca -= 2 * PI;}
-			disT = disT * cos(ca);
-			float lineH = (mapS * 640) / disT; 
+			disH = disH * cos(ca);
+			float lineH = (mapS * 640) / disH; 
 			float ty_step = 32.0 / lineH;
 			float ty_off = 0;
 			if (lineH > 640) 
@@ -489,6 +512,8 @@ public:
 			anglenormalize(ra);
 		}
 	}
+
+	
 	
 	float dist(float ax, float ay, float bx, float by, float angle)
 	{
