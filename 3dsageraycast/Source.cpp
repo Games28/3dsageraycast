@@ -83,7 +83,7 @@ public:
 	void init()
 	{
 		px = 300; py = 300; pa = 1.73f;
-		pdx = cos(pa) * 5; pdy = sin(pa) * 5;
+		pdx = cos(pa); pdy = -sin(pa);
 		sp[0].type = 1; sp[0].state = 1; sp[0].map = 0; sp[0].x = 1.5 * 64; sp[0].y = 5 * 64; sp[0].z = 20;
 	 }
 public:
@@ -216,7 +216,7 @@ public:
 		float sy = sp[0].y - py;
 		float sz = sp[0].z;
 
-		float CS = cos(degToRad(pa)), SN = sin(degToRad(pa));
+		float CS = cos(pa), SN = sin(pa);
 		float a = sy * CS + sx * SN;
 		float b = sx * CS - sy * SN;
 		sx = a; sy = b;
@@ -302,214 +302,108 @@ public:
 	}
 	void drawRays3D()
 	{
-		int r, mapx, mapy, map, dof;  float rx, ry, ra,vx,vy, xo, yo, disT, disV, disH;
-		int vmt = 0, hmt = 0, mt = 0;
-		ra = pa - DR * 30;
-		anglenormalize(ra);
-		
+		int r, mx, my, mp, dof, side; float vx, vy, rx, ry, ra, xo, yo, disV, disH;
+
+		ra = FixAng(pa + 30);                                                              //ray set back 30 degrees
+
 		for (r = 0; r < 120; r++)
 		{
-			//check vertical lines
-
-			dof = 0;
+			int vmt = 0, hmt = 0;                                                              //vertical and horizontal map texture number 
+			//---Vertical--- 
+			dof = 0; side = 0; disV = 100000;
 			float Tan = tan(degToRad(ra));
-			float disV = 100000, vx = px, vy = py;
-			if (cos(degToRad(ra)) > EPSILON)
-			{
-				rx = (((int)px >> 6) << 6) + 64.0f;
-				ry = (px - rx) * Tan + py;
-				xo = 64;
-				yo = -xo * Tan;
-			}
-			else if (cos(degToRad(ra)) < EPSILON)
-			{
-				rx = (((int)px >> 6) << 6) - 0.0001f;
-				ry = (px - rx) * Tan + py;
-				xo = -64;
-				yo = -xo * Tan;
-
-			}
-			else
-			{
-				rx = px; ry = py; dof = 8;
-			}
+			if (cos(degToRad(ra)) > 0.001) { rx = (((int)px >> 6) << 6) + 64;      ry = (px - rx) * Tan + py; xo = 64; yo = -xo * Tan; }//looking left
+			else if (cos(degToRad(ra)) < -0.001) { rx = (((int)px >> 6) << 6) - 0.0001; ry = (px - rx) * Tan + py; xo = -64; yo = -xo * Tan; }//looking right
+			else { rx = px; ry = py; dof = 8; }                                                  //looking up or down. no hit  
 
 			while (dof < 8)
 			{
-				mapx = int(rx) >> 6;
-				mapy = int(ry) >> 6;
-				map = mapy * mapX + mapx;
-				if (map >= 0 && mapX * mapY && mapW[map] > 0)
-				{
-					vmt = mapW[map] - 1;
-					dof = 8;
-					disV = dist(px, py, rx, ry, ra);
-
-				}
-				else
-				{
-					rx += xo;
-					ry += yo;
-					dof += 1;
-				}
-
+				mx = (int)(rx) >> 6; my = (int)(ry) >> 6; mp = my * mapX + mx;
+				if (mp > 0 && mp < mapX * mapY && mapW[mp]>0) { vmt = mapW[mp] - 1; dof = 8; disV = cos(degToRad(ra)) * (rx - px) - sin(degToRad(ra)) * (ry - py); }//hit         
+				else { rx += xo; ry += yo; dof += 1; }                                               //check next horizontal
 			}
-			vx = rx;
-			vy = ry;
+			vx = rx; vy = ry;
 
-			//check horizontial lines
-			
-			dof = 0;
-			disH = 100000;
+			//---Horizontal---
+			dof = 0; disH = 100000;
+			Tan = 1.0 / Tan;
+			if (sin(degToRad(ra)) > 0.001) { ry = (((int)py >> 6) << 6) - 0.0001; rx = (py - ry) * Tan + px; yo = -64; xo = -yo * Tan; }//looking up 
+			else if (sin(degToRad(ra)) < -0.001) { ry = (((int)py >> 6) << 6) + 64;      rx = (py - ry) * Tan + px; yo = 64; xo = -yo * Tan; }//looking down
+			else { rx = px; ry = py; dof = 8; }                                                   //looking straight left or right
 
-			Tan = 1.0f / Tan;
-
-			if (sin(degToRad(ra)) > EPSILON)
-			{
-				ry = (((int)py >> 6) << 6) - 0.0001f;
-				rx = (py - ry) * Tan + px;
-				yo = -64;
-				xo = -yo * Tan;
-
-			}
-			else if (sin(degToRad(ra)) < EPSILON)
-			{
-				ry = (((int)py >> 6) << 6) + 64.0f;
-				rx = (py - ry) * Tan + px;
-				yo = 64;
-				xo = -yo * Tan;
-			}
-			else
-			{
-				rx = px; ry = py; dof = 8;
-			}
-			
 			while (dof < 8)
 			{
-				mapx = int(rx) >> 6;
-				mapy = int(ry) >> 6;
-				map = mapy * mapX + mapx;
-				// if the index is within the map, check if there's a wall there
-				if (map >= 0 && map < mapX * mapY && mapW[map] > 0) {
-					hmt = mapW[map] - 1;// hit wall
-					dof = 8;                                   // set dof to 8 to end while loop
-					disH = dist(px, py, rx, ry, ra);     // store info to compare shortest hit length
-				}
-				else {  // no hit and dof < 8 --> check next line
-					rx += xo;
-					ry += yo;
-					dof += 1;
-				}
-				
-
+				mx = (int)(rx) >> 6; my = (int)(ry) >> 6; mp = my * mapX + mx;
+				if (mp > 0 && mp < mapX * mapY && mapW[mp]>0) { hmt = mapW[mp] - 1; dof = 8; disH = cos(degToRad(ra)) * (rx - px) - sin(degToRad(ra)) * (ry - py); }//hit         
+				else { rx += xo; ry += yo; dof += 1; }                                               //check next horizontal
 			}
-			vx = rx;
-			vy = ry;
-			
 
-			olc::Pixel p;
 			float shade = 1;
-			//if (disV < disH)      //vertical wall hit
-			//{
-			//	mt = vmt; shade = 0.5; rx = vx; ry = vy; disT = disV; p = olc::PixelF(0, 100, 255);
-			//	
-			//} 
-			//if (disH < disV)   //hortizontal wall hit
-			//{ 
-			//	mt = hmt; rx = hx; ry = hy; disT = disH; p = olc::PixelF(0, 70, 200);
-			//	
-			//} 
-			if (disV < disH) {
-				shade = 0.5;
-				hmt = vmt;// vertical   wall hit
-				rx = vx;
-				ry = vy;
-				disH = disV;
-				
-			}
-			
-			//DrawLine(px , py , rx, ry, olc::CYAN);
 
-			//Draw 3d walls
-			float ca = pa - ra;
-			if (ca < 0) { ca += 2 * PI; } 
-			if (ca > 2 * PI) { ca -= 2 * PI;}
-			disH = disH * cos(ca);
-			float lineH = (mapS * 640) / disH; 
-			float ty_step = 32.0 / lineH;
+			if (disV < disH) { hmt = vmt; shade = 0.5; rx = vx; ry = vy; disH = disV;  }//horizontal hit first
+
+
+			int ca = pa - ra; 
+			disH = disH * cos(ca);                            //fix fisheye 
+			int lineH = (mapS * 640) / disH;
+			float ty_step = 32.0 / (float)lineH;
 			float ty_off = 0;
-			if (lineH > 640) 
-			{
-				ty_off = (lineH - 640) / 2.0;
-				lineH = 640; 
-			} //line height
-			float lineO = 320 - lineH / 2;
-			
+			if (lineH > 640) { ty_off = (lineH - 640) / 2.0; lineH = 640; }                            //line height and limit
+			int lineOff = 320 - (lineH / 2);                                               //line offset
 
-			//draw walls
+			//---draw walls---
 			int y;
-			float ty = ty_off * ty_step;// +mt * 32;
-			float tx = (int)(rx / 2.0) % 32; 
-			
-			
-			if (shade == 1) {
-				tx = (int)(rx / 2.0) % 32; if (ra > 180) { tx = 31 - tx; }
-			}
+			float ty = ty_off * ty_step + hmt * 32;
+			float tx;
+			if (shade == 1) { tx = (int)(rx / 2.0) % 32; if (ra > 180) { tx = 31 - tx; } }
 			else { tx = (int)(ry / 2.0) % 32; if (ra > 90 && ra < 270) { tx = 31 - tx; } }
-			
-			
 			for (y = 0; y < lineH; y++)
 			{
-				
+				int pixel = ((int)ty * 32 + (int)tx) * 3 + (hmt * 32 * 32 * 3);
+				int red = All_Textures[pixel + 0] * shade;
+				int green = All_Textures[pixel + 1] * shade;
+				int blue = All_Textures[pixel + 2] * shade;
 
-				
-			 int pixel = ((int)ty * 32 + (int)tx) * 3 + mt * 32 * 32 * 3;
-			 int red = All_Textures[pixel + 0] * shade;
-			 int green = All_Textures[pixel + 1] * shade;
-			 int blue = All_Textures[pixel + 2] * shade;
-			 
-			 
+				olc::Pixel Testp = olc::Pixel(red, green, blue);
 
-					
-				FillRect(r * 8, lineO + y, 8, 1, olc::Pixel(red, green, blue));
+				FillRect(r * 8, lineOff + y, 8, 1, Testp);
+
+				ty += ty_step;
+
 				ty += ty_step;
 			}
 
-			//draw floors
-			for (y = lineO + lineH; y < 640; y++)
+			//---draw floors---
+			for (y = lineOff + lineH; y < 640; y++)
 			{
-				olc::Pixel p;
-				float dy = y - (640 / 2.0), deg = ra, raFix = cos(pa - ra);
-				
-				float fPlayerTexX = px / 2;
-				float fPlayerTexY = py / 2;
-				float fDistToScreen = 158 * 2;
-				float fPlayerHeight = 32;
-				float fPrepDistance = fDistToScreen * fPlayerHeight / dy;
-				float fFinalDistance = fPrepDistance / raFix;
-				tx = fPlayerTexX + cos(deg) * fFinalDistance;
-				ty = fPlayerTexY + sin(deg) * fFinalDistance;
-			
+				float dy = y - (640 / 2.0), deg = degToRad(ra), raFix = cos(degToRad(pa - ra));
+				tx = px / 2 + cos(deg) * 158 * 2 * 32 / dy / raFix;
+				ty = py / 2 - sin(deg) * 158 * 2 * 32 / dy / raFix;
 				int mp = mapF[(int)(ty / 32.0) * mapX + (int)(tx / 32.0)] * 32 * 32;
 				int pixel = (((int)ty & 31) * 32 + ((int)tx & 31)) * 3 + mp * 3;
 				int red = All_Textures[pixel + 0] * 0.7;
 				int green = All_Textures[pixel + 1] * 0.7;
 				int blue = All_Textures[pixel + 2] * 0.7;
-				FillRect(r * 8, y, 8, 1, olc::Pixel(red, green, blue));
-			
-				//draw ceiling
+
+				olc::Pixel Testp = olc::Pixel(red, green, blue);
+
+				FillRect(r * 8, y, 8, 1, Testp);
+
+
+				//---draw ceiling---
 				mp = mapC[(int)(ty / 32.0) * mapX + (int)(tx / 32.0)] * 32 * 32;
 				pixel = (((int)ty & 31) * 32 + ((int)tx & 31)) * 3 + mp * 3;
 				red = All_Textures[pixel + 0];
 				green = All_Textures[pixel + 1];
 				blue = All_Textures[pixel + 2];
-			
-				
-				if(mp > 0)
-					FillRect(r * 8,640 - y, 8, 1, olc::Pixel(red, green, blue));
+
+				Testp = olc::Pixel(red, green, blue);
+				if (mp > 0) {
+					FillRect(r * 8, 640 - y, 8, 1, Testp);
+				}
 			}
-			ra += DR * 0.5;
-			anglenormalize(ra);
+
+			ra = FixAng(ra - 0.5);
 		}
 	}
 
